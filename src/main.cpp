@@ -1,4 +1,5 @@
 #include "main.h"
+
 #include "subsystems.hpp"
 
 // pee pee
@@ -48,8 +49,7 @@ void initialize() {
   // chassis.opcontrol_curve_buttons_right_set(pros::E_CONTROLLER_DIGITAL_Y, pros::E_CONTROLLER_DIGITAL_A);
 
   // Autonomous Selector using LLEMU
-  ez::as::auton_selector.autons_add({
-  });
+  ez::as::auton_selector.autons_add({});
 
   // Initialize chassis and auton selector
   chassis.initialize();
@@ -96,10 +96,11 @@ void autonomous() {
   chassis.drive_sensor_reset();               // Reset drive sensors to 0
   chassis.odom_xyt_set(0_in, 0_in, 0_deg);    // Set the current position, you can start at a specific position with this
   chassis.drive_brake_set(MOTOR_BRAKE_HOLD);  // Set motors to hold.  This helps autonomous consistency
-      skillsAuton();
+  testAuton();
 
   /*
   Odometry and Pure Pursuit are not magic
+  I dont believe you
 
   It is possible to get perfectly consistent results without tracking wheels,
   but it is also possible to have extremely inconsistent results without tracking wheels.
@@ -115,7 +116,7 @@ void autonomous() {
 /**
  * Simplifies printing tracker values to the brain screen
  */
-void screen_print_tracker(ez::tracking_wheel *tracker, std::string name, int line) {
+void screen_print_tracker(ez::tracking_wheel* tracker, std::string name, int line) {
   std::string tracker_value = "", tracker_width = "";
   // Check if the tracker exists
   if (tracker != nullptr) {
@@ -181,14 +182,17 @@ void ez_template_extras() {
     //  When enabled:
     //  * use A and Y to increment / decrement the constants
     //  * use the arrow keys to navigate the constants
-    if (master.get_digital_new_press(DIGITAL_X))
-      chassis.pid_tuner_toggle();
+
+
+
+    // if (master.get_digital_new_press(DIGITAL_X)) //tedys tuning setup
+    //   chassis.pid_tuner_toggle();
 
     // Trigger the selected autonomous routine
-    if ((master.get_digital(DIGITAL_B))) {
-      pros::motor_brake_mode_e_t preference = chassis.drive_brake_get();
-      autonomous();
-    }
+    // if ((master.get_digital(DIGITAL_B))) {
+    //   pros::motor_brake_mode_e_t preference = chassis.drive_brake_get();
+    //   autonomous();
+    // }
 
     // Allow PID Tuner to iterate
     chassis.pid_tuner_iterate();
@@ -217,9 +221,9 @@ void ez_template_extras() {
 
 // Matthews constant for a really good drivetrain DO NOT TOUCH
 // Use the PROS 'master' controller (defined in main.h)
-float pCurve = 0.5;        // curve for fwd/back
-float tCoefficient = - 2.8;  // curve for turn
-float tCurve = 0.5;        // coefficient for turn
+float pCurve = 0.5;         // curve for fwd/back
+float tCoefficient = 1.1;  // curve for turn
+float tCurve = 0.5;         // coefficient for turn
 double power = 0.0;
 double powerC = 0.0;
 double turn = 0.0;
@@ -228,23 +232,23 @@ bool halfSpeed = false;
 double leftDrv;
 double rightDrv;
 bool MatchLoadBool = false;
-bool DescoreBool = false;
+bool intakePisionBool = false;
 
 void opcontrol() {
   // This is preference to what you like to drive on
   chassis.drive_brake_set(MOTOR_BRAKE_COAST);
   while (true) {
-  #pragma region DriveTrain
-      // Gives you some extras to make EZ-Template ezier
-    //Matthews drivetrain code (ABSOLUTELY DO NOT TOUCH)
+#pragma region driveTrain
+    // Gives you some extras to make EZ-Template ezier
+    // Matthews drivetrain code (ABSOLUTELY DO NOT TOUCH)
     ez_template_extras();
     // Setting power and turn variables
-    power = master.get_analog(ANALOG_LEFT_Y);  // Left stick vertical
-    turn = - master.get_analog(ANALOG_RIGHT_X);  // Right stick horizontal
+    power = master.get_analog(ANALOG_LEFT_Y);   // Left stick vertical
+    turn = -master.get_analog(ANALOG_RIGHT_X);  // Right stick horizontal
 
     // Calculating velocity
     powerC = ((1 - pCurve) * power) + ((pCurve * pow(power, 3)) / 20736);
-    //https://www.desmos.com/calculator/asjs86sdpy
+    // https://www.desmos.com/calculator/asjs86sdpy
 
     // Calculating turn curve
     turnC = tCoefficient * ((1 - tCurve) * turn) + ((tCurve * pow(turn, 3)) / 20736);
@@ -254,77 +258,69 @@ void opcontrol() {
 
     // Arcade Drive, setting the motor velocity
     chassis.drive_set(leftDrv, rightDrv);
-  #pragma endregion
-   #pragma region Intake
+#pragma endregion
+#pragma region intake // (R2) runs intake and score moter
 
-if(master.get_digital(DIGITAL_R2)){
-  intake.move(127);
-}
-else{
-  intake.move(0);
-}
+    if (master.get_digital(DIGITAL_R2)) {
+      intake.move(127);
+      preroller.move(127);
+    } else if (master.get_digital(DIGITAL_L2)){ 
+      intake.move(-127);
+      preroller.move(-127);
+    }
+    else {
+      intake.move(0);
+      preroller.move(0);
+    }
 
-  #pragma endregion
-  #pragma region MiddleGoal
+#pragma endregion
+#pragma region middleGoal // middle goal scoring(R1)
 
- if(master.get_digital(DIGITAL_L2)){
- middle_scorer.move(127);
- }
- else if (master.get_digital(DIGITAL_R1)){
- middle_scorer.move(-127);
- intake.move(-127);
- tall_scorer.move(127);
- } 
- else{
-  middle_scorer.move(0);
- }
+    if (master.get_digital(DIGITAL_R1)) {
+      scoreMoter.move(127);
+    } else if(master.get_digital(DIGITAL_L1)){
+      scoreMoter.move(-127);
+    }
+    else {
+      scoreMoter.move(0);
+    }
+#pragma endregion
+#pragma region MatchLoader // (A) Button: port E
 
-  #pragma endregion
-  #pragma region LongGoal
+    if (master.get_digital_new_press(DIGITAL_A)) {
+      MatchLoadBool = !MatchLoadBool;
+    }
 
-if(master.get_digital(DIGITAL_L1)){
-tall_scorer.move(-127);
-}
-else{
-  tall_scorer.move(0);
-}
+    if (MatchLoadBool == true) {
+      matchLoader.set(true);
+    }
 
-  #pragma endregion
-  #pragma region MatchLoader
+    if (MatchLoadBool == false) {
+      matchLoader.set(false);
+    }
+#pragma endregion
+#pragma region intakePiston// (B) Button: port C
 
-if (master.get_digital_new_press(DIGITAL_A)){
-  MatchLoadBool = !MatchLoadBool;
- }
+    if (master.get_digital_new_press(DIGITAL_B)) {
+      intakePisionBool = !intakePisionBool;
+    }
 
- if (MatchLoadBool == true){
-  matchLoader.set(true);
- }
+    if (intakePisionBool == true) {
+      intakePiston.set(true);
+    }
 
-  if (MatchLoadBool == false){
-  matchLoader.set(false);
- }
-  #pragma endregion
-  #pragma region Descore
-
-if (master.get_digital_new_press(DIGITAL_B)){
-DescoreBool = !DescoreBool; 
-}
-
-if (DescoreBool == true){
-descore.set(true);
-}
-
-if (DescoreBool == false){
-  descore.set(false);
-}
-  #pragma endregion
+    if (intakePisionBool == false) {
+      intakePiston.set(false);
+    }
+#pragma endregion
+   
 /* TODO FOR ME
-Change the piston activation code so you can just attatch it to a boolean and not have two separate buttons
-Make the piston code be separate if statements, not else ifs for due to input delay
-make intake and scoring code not shit by making them control different stages
-better to have them trigger different stages
-I dislike the top two cause it involves pressing buttons which is hard
-*/
+  Change the piston activation code so you can just attatch it to a boolean and not have two separate buttons
+  Make the piston code be separate if statements, not else ifs for due to input delay
+  make intake and scoring code not shit by making them control different stages
+  better to have them trigger different stages
+  I dislike the top two cause it involves pressing buttons which is hard
+  */
     pros::delay(ez::util::DELAY_TIME);  // This is used for timer calculations!  Keep this ez::util::DELAY_TIME
   }
 }
