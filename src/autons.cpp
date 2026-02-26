@@ -155,14 +155,25 @@ void testAuton() {
   scoreMoter.move(127);
   intake.move(127);
   intakePiston.set(true);
-  chassis.pid_drive_set(-30, DRIVE_SPEED_SLOW);  // back out of match loader
+  chassis.pid_drive_set(-15, DRIVE_SPEED_SLOW);  // back out of match loader
   chassis.pid_wait_quick_chain();
-  pros::delay(5000); //wait to score
+  pros::delay(5000);  // wait to score
   chassis.pid_drive_set(18, DRIVE_SPEED);
   chassis.pid_wait_quick_chain();
   chassis.pid_turn_set(-150, TURN_SPEED);  // turn around
   chassis.pid_wait_quick_chain();
-
-  // third phase, pick up middle balls, drive to top right match loader and score on that goal 
-  
+  scoreMoter.move(0);
+  // third phase, pick up middle balls, drive to top right match loader and score on that goal
+  intakePiston.set(false);
+  chassis.pid_drive_set(30, DRIVE_SPEED_SLOW);
+  intake.move(127);
+  preroller.move(127);
+  chassis.pid_wait_quick_chain();
+  chassis.pid_drive_set(30, DRIVE_SPEED_SLOW);
+  intake.move(-127);
+  preroller.move(-127);
+  pros::delay(5000);  // wait to score
+  chassis.pid_wait_quick_chain();
+  chassis.pid_drive_set(-30, DRIVE_SPEED_SLOW); // back out of middle goal
+  chassis.pid_wait_quick_chain();
 }
